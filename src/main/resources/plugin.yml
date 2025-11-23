@@ -1,0 +1,13 @@
+name: Terminals
+version: 1.0.0
+main: xionglongztz.Terminals
+api-version: 1.21
+load: STARTUP
+author: xionglongztz
+description: 在Minecraft中执行系统终端命令的插件
+commands:
+  terminal:
+    description: 管理终端会话
+    usage: /terminal < new | suspend | continue | exit | end >
+    permission: terminals.execute
+    permission-message: 你没有权限使用此命令
