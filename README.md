@@ -2,7 +2,7 @@
 > [!WARNING]  
 > **此插件允许在服务器系统上执行任意命令，请谨慎使用！**
 
-![Minecraft](https://img.shields.io/badge/Minecraft-1.13+-green.svg)
+![Minecraft](https://img.shields.io/badge/Minecraft-1.21.8+-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/Version-1.0.1-orange.svg)
 
