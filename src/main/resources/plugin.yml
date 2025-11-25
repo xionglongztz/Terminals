@@ -1,5 +1,5 @@
 name: Terminals
-version: 1.0.0
+version: 1.0.1
 main: xionglongztz.Terminals
 api-version: 1.21
 load: STARTUP
@@ -11,3 +11,4 @@ commands:
     usage: /terminal < new | suspend | continue | exit | end >
     permission: terminals.execute
     permission-message: 你没有权限使用此命令
+    aliases: [ term ]

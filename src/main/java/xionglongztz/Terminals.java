@@ -1,6 +1,7 @@
 package xionglongztz;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -8,7 +9,9 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.permissions.Permission;
 import org.bukkit.permissions.PermissionDefault;
@@ -21,7 +24,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 public class Terminals extends JavaPlugin implements Listener {
-
     private Map<String, TerminalSession> playerSessions;
     private static final String EXECUTE_PERMISSION = "terminals.execute";
     private final AtomicLong enableTime = new AtomicLong();// 用于计时
@@ -39,31 +41,39 @@ public class Terminals extends JavaPlugin implements Listener {
     @Override
     public void onEnable() {
         enableTime.set(System.currentTimeMillis());// 启动计时器
+        // 注册日志记录器类
+        TerminalLogger.initialize(this);
+        TerminalLogger.log("------------------------------");
+        TerminalLogger.log("[*] 插件已载入!");
         ConsoleCommandSender console = Bukkit.getServer().getConsoleSender();// 获得控制台消息sender
         console.sendMessage(colorize(PF + "&b版本 &7- v" + this.getDescription().getVersion()));
         console.sendMessage(colorize(PF + "&b作者 &7- " + this.getDescription().getAuthors().getFirst()));
-        console.sendMessage(colorize(PF + "&b服务端 &7- " + Bukkit.getName()));
+        console.sendMessage(colorize(PF + "&b环境 &7- " + Bukkit.getName()));
         if (System.getProperty("os.name").toLowerCase().contains("win")) {
             // Windows系统
-            console.sendMessage(colorize(PF + "&b操作系统 &7- Windows"));
+            console.sendMessage(colorize(PF + "&b系统 &7- Windows"));
             currentOS = osType.Windows;
             if (IsWindowsAdmin()) {
-                console.sendMessage(colorize(PF + "&b管理员权限 &7- &a是"));
+                console.sendMessage(colorize(PF + "&b管理员 &7- &a是"));
+                TerminalLogger.log("[@] 管理员:是");
                 adminPermission = true;
             } else {
-                console.sendMessage(colorize(PF + "&b管理员权限 &7- &c否"));
+                console.sendMessage(colorize(PF + "&b管理员 &7- &c否"));
+                TerminalLogger.log("[@] 管理员:否");
             }
         } else {
             // Linux/Unix系统
-            console.sendMessage(colorize(PF + "&b操作系统 &7- Linux"));
+            console.sendMessage(colorize(PF + "&b系统 &7- Linux"));
             currentOS = osType.Linux;
             if (IsUnixAdmin()){
-                console.sendMessage(colorize(PF + "&b管理员权限 &7- &a是"));
+                console.sendMessage(colorize(PF + "&b管理员 &7- &a是"));
+                TerminalLogger.log("[@] 管理员:是");
             } else {
-                console.sendMessage(colorize(PF + "&b管理员权限 &7- &c否"));
+                console.sendMessage(colorize(PF + "&b管理员 &7- &c否"));
+                TerminalLogger.log("[@] 管理员:否");
             }
         }
-        console.sendMessage(colorize((PF + "&b路径 - &7") + System.getProperty("user.dir")));
+        console.sendMessage(colorize((PF + "&b路径 &7- ") + System.getProperty("user.dir")));
         console.sendMessage(colorize(PF + "&b  _____                   _             _     "));
         console.sendMessage(colorize(PF + "&b |_   _|__ _ __ _ __ ___ (_)_ __   __ _| |___ "));
         console.sendMessage(colorize(PF + "&b   | |/ _ \\ '__| '_ ` _ \\| | '_ \\ / _` | / __|"));
@@ -95,6 +105,7 @@ public class Terminals extends JavaPlugin implements Listener {
             session.terminate();
         }
         playerSessions.clear();
+        TerminalLogger.log("[*] 插件已卸载!");
     }
     // 命令处理
     @Override
@@ -135,14 +146,15 @@ public class Terminals extends JavaPlugin implements Listener {
         return true;
     }
     private void sendHelp(Player player) {
-        player.sendMessage(colorize(PF + "&b===== Terminals ====="));
-        player.sendMessage(colorize(PF + "&b/terminal new &7- 创建新的终端会话"));
-        player.sendMessage(colorize(PF + "&b/terminal suspend &7- 挂起当前终端"));
-        player.sendMessage(colorize(PF + "&b/terminal continue &7- 恢复挂起的终端"));
-        player.sendMessage(colorize(PF + "&b/terminal exit &7- 退出终端"));
-        player.sendMessage(colorize(PF + "&b/terminal end &7- 终止终端"));
-        player.sendMessage(currentOS == osType.Windows ? colorize(PF + "&b当前操作系统:Windows") : colorize(PF + "&b当前操作系统:Linux"));
-        player.sendMessage(colorize(adminPermission ? PF + "&2当前终端具有管理员权限" : PF + "&6当前终端不具有管理员权限"));
+        player.sendMessage(colorize("&b===== Terminals ====="));
+        player.sendMessage(colorize("&b/terminal new &7- 创建新的终端会话"));
+        player.sendMessage(colorize("&b/terminal suspend &7- 挂起当前终端"));
+        player.sendMessage(colorize("&b/terminal continue &7- 恢复挂起的终端"));
+        player.sendMessage(colorize("&b/terminal exit &7- 退出终端"));
+        player.sendMessage(colorize("&b/terminal end &7- 终止终端"));
+        player.sendMessage(currentOS == osType.Windows ? colorize("&b当前操作系统:Windows") : colorize("&b当前操作系统:Linux"));
+        player.sendMessage(colorize(adminPermission ? "&2当前终端具有管理员权限" : "&6当前终端不具有管理员权限"));
+        player.sendMessage(colorize("&b注:Shift+空手+攻击 可以向终端发送Ctrl+C"));
     }// 显示帮助信息
     private void createNewTerminal(Player player) {
         String playerName = player.getName();
@@ -152,11 +164,12 @@ public class Terminals extends JavaPlugin implements Listener {
             return;
         }
         try {
-            TerminalSession session = new TerminalSession(player);
+            TerminalSession session = new TerminalSession(player,this);
             playerSessions.put(playerName, session);
-            Bukkit.getServer().getConsoleSender().sendMessage(colorize(PF + "&a" + playerName + " 创建了终端会话!"));
+            Bukkit.getServer().getConsoleSender().sendMessage(colorize(PF + "[&a+&r] &a" + playerName + " 创建了终端会话!"));
+            TerminalLogger.log("[+] " + playerName + " 创建了终端会话!");
             player.sendMessage(colorize(PF + "&a终端会话已创建! 现在你输入的所有消息都将作为终端命令执行。"));
-            player.sendMessage(colorize(PF + "&e输入 '/terminal suspend' 来挂起终端，'/terminal exit' 来退出。"));
+            player.sendMessage(colorize(PF + "&a输入 '/terminal suspend' 来挂起终端，'/terminal exit' 来退出。"));
         } catch (Exception e) {
             player.sendMessage(colorize(PF + "&c创建终端会话时出错!请在控制台查看详情。"));
             getLogger().severe("创建终端会话失败: " + e.getMessage());
@@ -168,10 +181,15 @@ public class Terminals extends JavaPlugin implements Listener {
             player.sendMessage(colorize(PF + "&c你没有活动的终端会话!"));
             return;
         }
-        session.setSuspended(true);
-        Bukkit.getServer().getConsoleSender().sendMessage(colorize(PF + "&e" + player.getName() + " 挂起了终端会话!"));
-        player.sendMessage(colorize(PF + "&6终端已挂起。现在你的消息将正常发送到聊天栏。"));
-        player.sendMessage(colorize(PF + "&6输入 '/terminal continue' 回到终端。"));
+        if (!session.isSuspended()){
+            session.setSuspended(true);
+            TerminalLogger.log("[=] " + player.getName() + " 挂起了终端会话!");
+            Bukkit.getServer().getConsoleSender().sendMessage(colorize(PF + "[&e=&r] &e" + player.getName() + " 挂起了终端会话!"));
+            player.sendMessage(colorize(PF + "&e终端已挂起。现在你的消息将正常发送到聊天栏。"));
+            player.sendMessage(colorize(PF + "&e输入 '/terminal continue' 回到终端。"));
+        } else {
+            player.sendMessage(colorize(PF + "&c当前终端已经挂起! 输入 '/terminal continue' 回到终端。"));
+        }
     }// 挂起当前终端
     private void continueTerminal(Player player) {
         TerminalSession session = playerSessions.get(player.getName());
@@ -179,9 +197,14 @@ public class Terminals extends JavaPlugin implements Listener {
             player.sendMessage(colorize(PF + "&c你没有活动的终端会话!"));
             return;
         }
-        session.setSuspended(false);
-        Bukkit.getServer().getConsoleSender().sendMessage(colorize(PF + "&e" + player.getName() + " 恢复了终端会话!"));
-        player.sendMessage(colorize(PF + "&a已回到终端模式。输入的命令将在终端中执行。"));
+        if (session.isSuspended()){
+            session.setSuspended(false);
+            TerminalLogger.log("[=] " + player.getName() + " 恢复了终端会话!");
+            Bukkit.getServer().getConsoleSender().sendMessage(colorize(PF + "[&e=&r] &e" + player.getName() + " 恢复了终端会话!"));
+            player.sendMessage(colorize(PF + "&a已回到终端模式。输入的命令将在终端中执行。"));
+        } else {
+            player.sendMessage(colorize(PF + "&c当前终端已经恢复! 输入 '/terminal suspend' 挂起终端。"));
+        }
     }// 回到终端
     private void exitTerminal(Player player) {
         String playerName = player.getName();
@@ -192,8 +215,9 @@ public class Terminals extends JavaPlugin implements Listener {
         }
         session.exit();
         playerSessions.remove(playerName);
-        Bukkit.getServer().getConsoleSender().sendMessage(colorize(PF + "&c" + player.getName() + " 退出了终端会话!"));
-        player.sendMessage(colorize(PF + "&a终端会话已正常退出。"));
+        TerminalLogger.log("[-] " + playerName + " 关闭了终端会话!");
+        Bukkit.getServer().getConsoleSender().sendMessage(colorize(PF + "[&c-&r] &c" + player.getName() + " 关闭了终端会话!"));
+        player.sendMessage(colorize(PF + "&c终端会话已正常退出。"));
     }// 退出终端
     private void endTerminal(Player player) {
         String playerName = player.getName();
@@ -204,7 +228,8 @@ public class Terminals extends JavaPlugin implements Listener {
         }
         session.terminate();
         playerSessions.remove(playerName);
-        Bukkit.getServer().getConsoleSender().sendMessage(colorize(PF + "&c" + player.getName() + " 终止了终端会话!"));
+        TerminalLogger.log("[×] " + playerName + " 终止了终端会话!");
+        Bukkit.getServer().getConsoleSender().sendMessage(colorize(PF + "[&c×&r] &c" + player.getName() + " 终止了终端会话!"));
         player.sendMessage(colorize(PF + "&c终端会话已被强制终止。"));
     }// 终止终端
     @EventHandler
@@ -213,7 +238,7 @@ public class Terminals extends JavaPlugin implements Listener {
         TerminalSession session = playerSessions.get(player.getName());
 
         // 如果玩家有终端会话且未挂起，则处理命令
-        if (session != null && !session.isSuspended()) {
+        if (session != null && session.isActive() && !session.isSuspended()) {
             event.setCancelled(true); // 取消原版聊天消息
 
             String message = event.getMessage();
@@ -222,7 +247,8 @@ public class Terminals extends JavaPlugin implements Listener {
             CompletableFuture.runAsync(() -> {
                 try {
                     session.executeCommand(message);
-                    Bukkit.getServer().getConsoleSender().sendMessage(colorize(PF + "&e" + player.getName() + " 执行:&7") + message);
+                    TerminalLogger.log("[!] " + player.getName() + " 执行:" + message);
+                    Bukkit.getServer().getConsoleSender().sendMessage(colorize(PF + "[&e!&r] &e" + player.getName() + " 执行:&7") + message);
                 } catch (Exception e) {
                     player.sendMessage(colorize(PF + "&c执行命令时出错!请在控制台查看详情。"));
                     getLogger().severe("执行终端命令失败: " + e.getMessage());
@@ -248,6 +274,25 @@ public class Terminals extends JavaPlugin implements Listener {
         }
         return Collections.emptyList();
     }// 修改TAB自动补全的候选词
+    // 其他事件监听
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+
+        // 检查是否是空手+Shift+左键攻击
+        if (event.getAction() == Action.LEFT_CLICK_AIR || event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            if (player.isSneaking() &&
+                (player.getInventory().getItemInMainHand().getType() == Material.AIR)) {
+
+                TerminalSession session = playerSessions.get(player.getName());
+                if (session != null && !session.isSuspended()) {
+                    event.setCancelled(true); // 取消原版攻击动作
+                    session.sendCtrlC();
+                    player.sendMessage(colorize(PF + "&c已发送中断信号 (Ctrl+C)"));
+                }
+            }
+        }
+    }
     // 判断管理员权限
     private boolean IsUnixAdmin() {
         try {
@@ -285,4 +330,9 @@ public class Terminals extends JavaPlugin implements Listener {
         // 转换颜色字符
         return message.replace('&', '§');
     }// 颜色代码转换
+    // 添加会话管理方法
+    public void removeSession(String playerName) {
+        // 哈基米南北绿豆, 阿西噶呀库奶龙
+        playerSessions.remove(playerName);
+    }
 }

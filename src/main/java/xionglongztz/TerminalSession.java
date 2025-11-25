@@ -17,14 +17,17 @@ public class TerminalSession {
     private BufferedWriter writer;
     private boolean suspended;
     private boolean active;
+    private final Terminals plugin; // 添加插件引用
 
-    public TerminalSession(Player player) throws IOException {
+    public TerminalSession(Player player, Terminals plugin) throws IOException {
         this.player = player;
+        this.plugin = plugin;
         this.suspended = false;
         this.active = true;
         // 启动系统终端
         startTerminal();
     }
+
     private void startTerminal() throws IOException {
         String os = System.getProperty("os.name").toLowerCase();
 
@@ -41,7 +44,8 @@ public class TerminalSession {
 
         // 启动输出读取线程
         startOutputReader();
-
+        // 启动进程监控
+        startProcessMonitor();
         // 发送欢迎消息
         player.sendMessage(colorize(PF + "&2终端已启动 - " + (os.contains("win") ? "Windows CMD" : "Linux Bash")));
     }
@@ -61,7 +65,10 @@ public class TerminalSession {
                     // 在主线程中发送消息给玩家
                     org.bukkit.Bukkit.getScheduler().runTask(
                             Objects.requireNonNull(Bukkit.getPluginManager().getPlugin("Terminals")),
-                            () -> player.sendMessage("§7" + outputLine)
+                            () -> {
+                                player.sendMessage("§7" + outputLine);
+                                TerminalLogger.log(outputLine);// 记录命令日志
+                            }
                     );
                 }
             } catch (IOException e) {
@@ -102,12 +109,58 @@ public class TerminalSession {
         }
     }
 
+    private void startProcessMonitor() {
+        Thread monitorThread = new Thread(() -> {
+            try {
+                int exitCode = process.waitFor();
+                // 进程已退出，在主线程中清理会话
+                org.bukkit.Bukkit.getScheduler().runTask(plugin,
+                        () -> {
+                            if (active) {
+                                TerminalLogger.log("[-] " + player.getName() + " 终端被关闭! 退出代码:" + exitCode);
+                                Bukkit.getServer().getConsoleSender().sendMessage(colorize(
+                                        PF + "[&c-&r] &c" + player.getName() + " 终端被关闭! 退出代码:" + exitCode));
+                                player.sendMessage(colorize(PF + "&c终端进程已退出，退出代码: " + exitCode));
+                                // 通知主类移除会话
+                                plugin.removeSession(player.getName());
+                                active = false;
+                            }
+                        }
+                );
+            } catch (InterruptedException e) {
+                // 线程被中断，正常情况
+                Thread.currentThread().interrupt();
+            }
+        });
+        monitorThread.setDaemon(true);
+        monitorThread.start();
+    }
+    public boolean isActive(){
+        return active;
+    }
+
     public void setSuspended(boolean suspended) {
         this.suspended = suspended;
     }
     public boolean isSuspended() {
         return suspended;
     }
+
+    public void sendCtrlC() {
+        if (!active || suspended) {
+            return;
+        }
+
+        try {
+            process.destroy(); // 这会发送SIGTERM信号（类似Ctrl+C）
+            // 记录日志
+            TerminalLogger.log("[X] 用户发出中断信号");
+
+        } catch (Exception e) {
+            player.sendMessage("§c发送中断信号失败: " + e.getMessage());
+        }
+    }
+
     public void exit() {
         if (!active) return;
 
